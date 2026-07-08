@@ -283,6 +283,7 @@ object BeatAnalyzer {
                         val buf = codec.getOutputBuffer(outIndex)!!
                         buf.position(info.offset)
                         buf.limit(info.offset + info.size)
+                        buf.order(java.nio.ByteOrder.LITTLE_ENDIAN)
                         val shorts = buf.asShortBuffer()
                         val frames = shorts.remaining() / channels
                         val mono = FloatArray(frames)
