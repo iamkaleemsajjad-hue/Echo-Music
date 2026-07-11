@@ -436,6 +436,16 @@ class MusicService :
     private var listenBrainzCurrentStartTs: Long = 0L
     private var listenBrainzCurrentMediaId: String? = null
 
+    // ---------------------------------------------------------------------------
+    // Cached DataStore preferences — kept reactive by collectors in onCreate().
+    // Used instead of runBlocking{} inside main-thread Player.Listener callbacks.
+    // ---------------------------------------------------------------------------
+    private var cachedRepeatMode: Int = REPEAT_MODE_OFF
+    private var cachedShuffleEnabled: Boolean = false
+    private var cachedPreloadEnabled: Boolean = true
+    private var cachedPreloadLimit: Int = 1
+    private var cachedPreloadLyrics: Boolean = true
+
     val automixItems = MutableStateFlow<List<MediaItem>>(emptyList())
 
     
@@ -892,6 +902,36 @@ class MusicService :
                     scheduleCrossfade()
                 }
             }
+
+        // -----------------------------------------------------------------------
+        // Reactive caches for settings read inside main-thread Player.Listener
+        // callbacks. These replace the runBlocking{} calls that were previously
+        // blocking the main thread on every song transition and playback event.
+        // -----------------------------------------------------------------------
+        dataStore.data
+            .map { it[RepeatModeKey] ?: REPEAT_MODE_OFF }
+            .distinctUntilChanged()
+            .collect(scope) { cachedRepeatMode = it }
+
+        dataStore.data
+            .map { it[ShuffleModeKey] ?: false }
+            .distinctUntilChanged()
+            .collect(scope) { cachedShuffleEnabled = it }
+
+        dataStore.data
+            .map { it[iad1tya.echo.music.constants.PreloadNextSongEnabledKey] ?: true }
+            .distinctUntilChanged()
+            .collect(scope) { cachedPreloadEnabled = it }
+
+        dataStore.data
+            .map { it[iad1tya.echo.music.constants.PreloadNextSongLimitKey] ?: 1 }
+            .distinctUntilChanged()
+            .collect(scope) { cachedPreloadLimit = it }
+
+        dataStore.data
+            .map { it[iad1tya.echo.music.constants.PreloadLyricsEnabledKey] ?: true }
+            .distinctUntilChanged()
+            .collect(scope) { cachedPreloadLyrics = it }
 
 
         if (dataStore.get(PersistentQueueKey, true)) {
@@ -1888,8 +1928,7 @@ class MusicService :
         prepareAutomixForCurrentPair()
 
         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-            val repeatMode = runBlocking { dataStore.get(RepeatModeKey, REPEAT_MODE_OFF) }
-            if (repeatMode == REPEAT_MODE_ONE &&
+            if (cachedRepeatMode == REPEAT_MODE_ONE &&
                 previousMediaItemIndex != C.INDEX_UNSET &&
                 previousMediaItemIndex != player.currentMediaItemIndex) {
 
@@ -1970,8 +2009,7 @@ class MusicService :
     ) {
         
         if (playbackState == Player.STATE_ENDED) {
-            val repeatMode = runBlocking { dataStore.get(RepeatModeKey, REPEAT_MODE_OFF) }
-            if (repeatMode == REPEAT_MODE_ALL && player.mediaItemCount > 0) {
+            if (cachedRepeatMode == REPEAT_MODE_ALL && player.mediaItemCount > 0) {
                 player.seekTo(0, 0)
                 player.prepare()
                 player.play()
@@ -3604,8 +3642,8 @@ class MusicService :
 
 
 
-        val savedRepeatMode = runBlocking { dataStore.get(RepeatModeKey, REPEAT_MODE_OFF) }
-        val savedShuffleEnabled = runBlocking { dataStore.get(ShuffleModeKey, false) }
+        val savedRepeatMode = cachedRepeatMode
+        val savedShuffleEnabled = cachedShuffleEnabled
 
 
         val targetIndex = if (savedRepeatMode == REPEAT_MODE_ONE) {
@@ -3835,11 +3873,11 @@ class MusicService :
     private var preloadJob: kotlinx.coroutines.Job? = null
 
     private fun preloadUpcomingItems() {
-        val preloadEnabled = kotlinx.coroutines.runBlocking { dataStore.get(iad1tya.echo.music.constants.PreloadNextSongEnabledKey, true) }
+        val preloadEnabled = cachedPreloadEnabled
         if (!preloadEnabled) return
 
-        val preloadLimit = kotlinx.coroutines.runBlocking { dataStore.get(iad1tya.echo.music.constants.PreloadNextSongLimitKey, 1) }
-        val preloadLyrics = kotlinx.coroutines.runBlocking { dataStore.get(iad1tya.echo.music.constants.PreloadLyricsEnabledKey, true) }
+        val preloadLimit = cachedPreloadLimit
+        val preloadLyrics = cachedPreloadLyrics
 
         val currentIndex = player.currentMediaItemIndex
         if (currentIndex == androidx.media3.common.C.INDEX_UNSET) return
