@@ -118,6 +118,9 @@ import iad1tya.echo.music.constants.ScrobbleMinSongDurationKey
 import iad1tya.echo.music.constants.ShowLyricsKey
 import iad1tya.echo.music.constants.ShuffleModeKey
 import iad1tya.echo.music.constants.ShufflePlaylistFirstKey
+import iad1tya.echo.music.constants.PreloadLyricsEnabledKey
+import iad1tya.echo.music.constants.PreloadNextSongEnabledKey
+import iad1tya.echo.music.constants.PreloadNextSongLimitKey
 import iad1tya.echo.music.constants.PreventDuplicateTracksInQueueKey
 import iad1tya.echo.music.constants.SimilarContent
 import iad1tya.echo.music.constants.SkipSilenceInstantKey
@@ -436,10 +439,7 @@ class MusicService :
     private var listenBrainzCurrentStartTs: Long = 0L
     private var listenBrainzCurrentMediaId: String? = null
 
-    // ---------------------------------------------------------------------------
-    // Cached DataStore preferences — kept reactive by collectors in onCreate().
-    // Used instead of runBlocking{} inside main-thread Player.Listener callbacks.
-    // ---------------------------------------------------------------------------
+    // Cached playback preferences kept in sync with DataStore.
     private var cachedRepeatMode: Int = REPEAT_MODE_OFF
     private var cachedShuffleEnabled: Boolean = false
     private var cachedPreloadEnabled: Boolean = true
@@ -903,11 +903,8 @@ class MusicService :
                 }
             }
 
-        // -----------------------------------------------------------------------
-        // Reactive caches for settings read inside main-thread Player.Listener
-        // callbacks. These replace the runBlocking{} calls that were previously
-        // blocking the main thread on every song transition and playback event.
-        // -----------------------------------------------------------------------
+        // Keep cached preferences in sync so Player.Listener callbacks can read
+        // them without blocking the main thread.
         dataStore.data
             .map { it[RepeatModeKey] ?: REPEAT_MODE_OFF }
             .distinctUntilChanged()
@@ -919,17 +916,17 @@ class MusicService :
             .collect(scope) { cachedShuffleEnabled = it }
 
         dataStore.data
-            .map { it[iad1tya.echo.music.constants.PreloadNextSongEnabledKey] ?: true }
+            .map { it[PreloadNextSongEnabledKey] ?: true }
             .distinctUntilChanged()
             .collect(scope) { cachedPreloadEnabled = it }
 
         dataStore.data
-            .map { it[iad1tya.echo.music.constants.PreloadNextSongLimitKey] ?: 1 }
+            .map { it[PreloadNextSongLimitKey] ?: 1 }
             .distinctUntilChanged()
             .collect(scope) { cachedPreloadLimit = it }
 
         dataStore.data
-            .map { it[iad1tya.echo.music.constants.PreloadLyricsEnabledKey] ?: true }
+            .map { it[PreloadLyricsEnabledKey] ?: true }
             .distinctUntilChanged()
             .collect(scope) { cachedPreloadLyrics = it }
 
@@ -1928,7 +1925,7 @@ class MusicService :
         prepareAutomixForCurrentPair()
 
         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-            // FIX: Use cachedRepeatMode here instead of runBlocking { dataStore.get(...) } to prevent Main Thread ANRs
+            // Read cached preference to avoid synchronous DataStore access during playback callbacks.
             if (cachedRepeatMode == REPEAT_MODE_ONE &&
                 previousMediaItemIndex != C.INDEX_UNSET &&
                 previousMediaItemIndex != player.currentMediaItemIndex) {
@@ -2010,7 +2007,7 @@ class MusicService :
     ) {
         
         if (playbackState == Player.STATE_ENDED) {
-            // FIX: Use cachedRepeatMode here instead of runBlocking { dataStore.get(...) } to prevent Main Thread ANRs
+            // Read cached preference to avoid synchronous DataStore access during playback callbacks.
             if (cachedRepeatMode == REPEAT_MODE_ALL && player.mediaItemCount > 0) {
                 player.seekTo(0, 0)
                 player.prepare()
@@ -3644,7 +3641,7 @@ class MusicService :
 
 
 
-        // FIX: Use cached variables here instead of runBlocking { dataStore.get(...) } to prevent Main Thread ANRs
+        // Read cached preferences to avoid synchronous DataStore access on the main thread.
         val savedRepeatMode = cachedRepeatMode
         val savedShuffleEnabled = cachedShuffleEnabled
 
@@ -3876,7 +3873,7 @@ class MusicService :
     private var preloadJob: kotlinx.coroutines.Job? = null
 
     private fun preloadUpcomingItems() {
-        // FIX: Use cached preferences here instead of runBlocking { dataStore.get(...) } to prevent Main Thread ANRs
+        // Read cached preferences to avoid synchronous DataStore access on the main thread.
         val preloadEnabled = cachedPreloadEnabled
         if (!preloadEnabled) return
 
