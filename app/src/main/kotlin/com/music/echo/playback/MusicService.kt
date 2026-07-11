@@ -1928,6 +1928,7 @@ class MusicService :
         prepareAutomixForCurrentPair()
 
         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+            // FIX: Use cachedRepeatMode here instead of runBlocking { dataStore.get(...) } to prevent Main Thread ANRs
             if (cachedRepeatMode == REPEAT_MODE_ONE &&
                 previousMediaItemIndex != C.INDEX_UNSET &&
                 previousMediaItemIndex != player.currentMediaItemIndex) {
@@ -2009,6 +2010,7 @@ class MusicService :
     ) {
         
         if (playbackState == Player.STATE_ENDED) {
+            // FIX: Use cachedRepeatMode here instead of runBlocking { dataStore.get(...) } to prevent Main Thread ANRs
             if (cachedRepeatMode == REPEAT_MODE_ALL && player.mediaItemCount > 0) {
                 player.seekTo(0, 0)
                 player.prepare()
@@ -3642,6 +3644,7 @@ class MusicService :
 
 
 
+        // FIX: Use cached variables here instead of runBlocking { dataStore.get(...) } to prevent Main Thread ANRs
         val savedRepeatMode = cachedRepeatMode
         val savedShuffleEnabled = cachedShuffleEnabled
 
@@ -3873,6 +3876,7 @@ class MusicService :
     private var preloadJob: kotlinx.coroutines.Job? = null
 
     private fun preloadUpcomingItems() {
+        // FIX: Use cached preferences here instead of runBlocking { dataStore.get(...) } to prevent Main Thread ANRs
         val preloadEnabled = cachedPreloadEnabled
         if (!preloadEnabled) return
 
