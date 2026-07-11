@@ -1925,7 +1925,6 @@ class MusicService :
         prepareAutomixForCurrentPair()
 
         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-            // Read cached preference to avoid synchronous DataStore access during playback callbacks.
             if (cachedRepeatMode == REPEAT_MODE_ONE &&
                 previousMediaItemIndex != C.INDEX_UNSET &&
                 previousMediaItemIndex != player.currentMediaItemIndex) {
@@ -2007,7 +2006,6 @@ class MusicService :
     ) {
         
         if (playbackState == Player.STATE_ENDED) {
-            // Read cached preference to avoid synchronous DataStore access during playback callbacks.
             if (cachedRepeatMode == REPEAT_MODE_ALL && player.mediaItemCount > 0) {
                 player.seekTo(0, 0)
                 player.prepare()
@@ -3641,7 +3639,6 @@ class MusicService :
 
 
 
-        // Read cached preferences to avoid synchronous DataStore access on the main thread.
         val savedRepeatMode = cachedRepeatMode
         val savedShuffleEnabled = cachedShuffleEnabled
 
@@ -3873,7 +3870,6 @@ class MusicService :
     private var preloadJob: kotlinx.coroutines.Job? = null
 
     private fun preloadUpcomingItems() {
-        // Read cached preferences to avoid synchronous DataStore access on the main thread.
         val preloadEnabled = cachedPreloadEnabled
         if (!preloadEnabled) return
 
