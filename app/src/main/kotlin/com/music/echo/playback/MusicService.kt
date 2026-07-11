@@ -3324,9 +3324,7 @@ class MusicService :
 
     private fun currentAutomixPair(): AutomixPair? {
         val currentId = player.currentMediaItem?.mediaId ?: return null
-        val repeatOne = runCatching {
-            dataStore.get(RepeatModeKey, REPEAT_MODE_OFF) == REPEAT_MODE_ONE
-        }.getOrDefault(player.repeatMode == REPEAT_MODE_ONE)
+        val repeatOne = cachedRepeatMode == REPEAT_MODE_ONE
         val nextId = if (repeatOne) {
             currentId
         } else {
